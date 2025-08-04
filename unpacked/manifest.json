@@ -1,0 +1,40 @@
+{
+    "manifest_version": 3,
+    "name": "URL Content Blocker",
+    "version": "1.1",
+    "description": "Blocks or redirects requests based on a dynamically updated YAML file from a URL.",
+    "permissions": [
+      "storage",
+      "contextMenus",
+      "alarms",
+      "declarativeNetRequest",
+      "tabs"
+    ],
+    "host_permissions": [
+      "<all_urls>"
+    ],
+    "background": {
+      "service_worker": "background.js"
+    },
+    "action": {
+      "default_title": "URL Content Blocker Options",
+      "default_popup": "options.html"
+    },
+    "options_page": "options.html",
+    "web_accessible_resources": [
+      {
+        "resources": ["/redirects/*"],
+        "matches": ["<all_urls>"]
+      }
+    ],
+    "declarative_net_request": {
+      "rule_resources": [
+        {
+          "id": "ruleset_1",
+          "enabled": true,
+          "path": "rules.json"
+        }
+      ]
+    }
+  }
+  

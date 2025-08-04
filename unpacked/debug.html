@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Info</title>
+    <style>
+        body { font-family: sans-serif; padding: 1em; width: 450px; }
+        h1 { font-size: 1.2em; }
+        table { width: 100%; border-collapse: collapse; margin-top: 1em; }
+        td { padding: 8px; border: 1px solid #ddd; word-break: break-all; }
+        td:first-child { font-weight: bold; width: 40%; }
+        button { padding: 10px 15px; margin-top: 1em; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>Debug Information</h1>
+    <table>
+        <tr>
+            <td>Configured URL</td>
+            <td id="url">Loading...</td>
+        </tr>
+        <tr>
+            <td>Last Fetch Attempt</td>
+            <td id="lastFetchAttempt">N/A</td>
+        </tr>
+        <tr>
+            <td>Last Fetch Result</td>
+            <td id="lastFetchResult">N/A</td>
+        </tr>
+        <tr>
+            <td>Last Successful Fetch</td>
+            <td id="lastSuccessfulFetch">N/A</td>
+        </tr>
+        <tr>
+            <td>Lock Status</td>
+            <td id="lockStatus">N/A</td>
+        </tr>
+    </table>
+    <button id="refresh-now">Refresh Now</button>
+    <script src="debug.js"></script>
+</body>
+</html>
