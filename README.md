@@ -1,55 +1,115 @@
 # URL Blocker Extension: Configuration File Syntax
 
-This document outlines the syntax for the YAML configuration file used by the URL Blocker Extension.
-
 ## Overview
 
-The configuration file uses the **YAML** format. It allows you to define a set of rules to either **block** network requests or **redirect** the user to a specific page.
+This document outlines the YAML syntax for the configuration file used by the URL Blocker Extension. The extension operates on a hybrid model:
+* **Blocking:** Uses Chrome's efficient `declarativeNetRequest` API to block requests.
+* **Redirection:** Uses the `tabs` API to programmatically redirect users to different pages.
 
-The file consists of up to four top-level keys: `lock`, `authn`, `global`, and `urls`.
+The configuration file must be a valid YAML file.
 
+---
+
+## Top-Level Structure
+
+The configuration file is a YAML object that can contain four top-level keys.
+
+| Key      | Type                      | Required                               | Description                                                                                                                              |
+| :------- | :------------------------ | :------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------- |
+| `lock`   | Boolean (`true`/`false`)  | No                                     | If set to `true`, the extension's "Options" page is locked, preventing users from changing the configuration URL.                      |
+| `authn`  | String                    | Yes, if `lock` is `true`               | A 64-character lowercase SHA256 hash of the password required to unlock the options page.                                                |
+| `global` | Object                    | No                                     | Defines default redirect targets (`html` or `htmlsrc`) for any redirect rules that do not specify their own.                             |
+| `urls`   | List of rule objects      | Yes                                    | The primary list containing all blocking and redirection rules.                                                                          |
+
+---
+
+## Rule Syntax
+
+Each item in the `urls` list is an object that defines a single rule. The structure of the object determines whether it's a blocking or a redirection rule.
+
+### Rule Object Keys
+
+| Key       | Type   | Required | Description                                                                                                                              |
+| :-------- | :----- | :------- | :--------------------------------------------------------------------------------------------------------------------------------------- |
+| `url`     | String | Yes      | A URL pattern using wildcard (`*`) matching. The `*` matches any sequence of zero or more characters. All other characters are literals. |
+| `html`    | String | No       | If present, makes the rule a **redirect rule**. The value is a string of raw HTML to be displayed to the user.                           |
+| `htmlsrc` | String | No       | If present, makes the rule a **redirect rule**. The value is a full URL to an external page where the user will be redirected.           |
+
+### Blocking Rule
+
+A rule is treated as a **block rule** if it contains **only** the `url` key.
+
+**Example:**
 ```yaml
-# --- Top Level Keys ---
+- url: "*://*.ad-network.com/*" # Blocks all protocols, e.g.: https://*.ad-network.com/* and http://*.ad-network.com/*
 
-# (Optional) Locks the extension's "Options" page.
+Redirection Rule
+A rule is treated as a redirect rule if it contains the url key and either html or htmlsrc.
+
+Example:
+
+# Redirect to an external page
+- url: "*://social-media.com/*.html" # Doesn't block subdomains such as www. and only blocks files in url root ending in .html
+  htmlsrc: "https://internal.mycompany.com/acceptable-use-policy.html"
+
+# Redirect to a custom inline HTML page
+- url: "*://*.gaming-site.net/abc/*" # Doesn't block outside /abc/
+  html: "<h1>Access Denied</h1><p>This site is not accessible from the corporate network.</p>"
+
+Logic and Precedence
+Redirect Target Precedence
+When a URL matches a redirect rule, the extension decides where to send the user based on the following order of priority:
+
+Rule htmlsrc: The htmlsrc URL defined within the specific rule itself. If htmlsrc cannot be fetched or malformed, will fallback to html (if present)
+
+Rule html: The html content defined within the specific rule.
+
+Global htmlsrc: The htmlsrc URL defined in the top-level global section. If htmlsrc cannot be fetched or malformed, will fallback to html (if present)
+
+Global html: The html content defined in the top-level global section.
+
+If a rule is a redirect rule (i.e., it has an empty html or htmlsrc key) but no target can be found in the precedence list, only blocking will occur.
+
+Full Configuration Example
+# ------------------------------------------------------------------
+# URL Blocker Extension - Sample Configuration
+# ------------------------------------------------------------------
+
+# Lock the options page to prevent manual changes.
 lock: true
 
-# (Required if lock is true) The SHA256 hash of the password needed to unlock the options.
-authn: "83ac674216f3e15c761ee1a5e255f067953623c8b388b4459e15f978d7c4a6f4"
+# The SHA256 hash for the password "s3cureP@ss!".
+# Users will need this password to unlock the options page.
+authn: "a113a878d6bde954a1822bd524d9c4728a74136540c504b2880a18f773659cd8"
 
-# (Optional) Defines default redirect pages for any redirect rule that doesn't have its own.
+# Define default pages for any redirect rules that don't have their own.
+# The 'htmlsrc' will be prioritized over 'html' if both are present.
 global:
-  htmlsrc: "[https://example.com/default_blocked_page.html](https://example.com/default_blocked_page.html)"
-  html: "<h1>Blocked</h1><p>This content is unavailable.</p>"
+  htmlsrc: "https://www.example.com/en/access-denied.html"
+  html: "<h1>Access Restricted</h1><p>Your access to this type of content is restricted by company policy.</p>"
 
-# (Required) A list of all blocking and redirection rules.
-urls:
-  # ... rules go here ...
-Top-Level Keys ExplainedlockType: true or falseDefault: falseDescription: If set to true, the "Options" page in the extension will be locked, preventing users from changing the configuration URL.authnType: stringRequired: Only if lock is true.Description: This must be a 64-character lowercase SHA256 hash of the password. When a user tries to access the locked options, they will be prompted for a password. The extension will hash their input and compare it to this value.globalType: objectDefault: (empty)Description: This section defines fallback redirect targets for any rule in the urls list that is a redirect rule but does not define its own html or htmlsrc.Sub-keys:htmlsrc: A URL to an external page to redirect to.html: A string of raw HTML to display as the blocked page.urlsType: list of objectsRequired: YesDescription: This is the main list of rules. Each item in the list is an object representing a single rule.Rule Object SyntaxEach rule in the urls list is an object with the following keys:urlType: stringRequired: YesDescription: The URL pattern to match. This uses a simple wildcard syntax:* matches any sequence of characters.All other characters are treated as literals.Example: *://*.google.com/search?q=* will match any Google search on both http and https.html (for Redirection)Type: stringOptional: YesDescription: If this key is present, any request matching the url pattern will be redirected to a page containing this raw HTML content.htmlsrc (for Redirection)Type: string (a valid URL)Optional: YesDescription: If this key is present, any request matching the url pattern will be redirected to this external URL.Rule Precedence and BehaviorBlock vs. Redirect:If a rule object only has a url key, it is a BLOCK rule. All matching requests will be blocked entirely.If a rule object has a url key and either an html or htmlsrc key, it is a REDIRECT rule.Redirect Precedence: For a matching redirect rule, the target is chosen in this order:The rule's own htmlsrc (if it exists).The rule's own html (if it exists and htmlsrc does not).The global section's htmlsrc (if it exists and the rule has no target).The global section's html (if it exists and no other target has been found).Full Example File# Configuration for the URL Blocker Extension
-
-lock: true
-authn: "83ac674216f3e15c761ee1a5e255f067953623c8b388b4459e15f978d7c4a6f4" # SHA256 hash for "password123"
-
-global:
-  # A default page for any redirected sites that don't have their own specific page.
-  htmlsrc: "[https://company.com/pages/access-denied.html](https://company.com/pages/access-denied.html)"
-
+# The list of all rules to be enforced by the extension.
 urls:
   # --- BLOCKING RULES ---
-  # These sites will be blocked completely.
-  - url: "*://*.doubleclick.net/*"
-  - url: "*://*[.adservice.com/](https://.adservice.com/)*"
+  # These patterns will be completely blocked by the extension.
+  - url: "*://*.adserver.com/*"
+  - url: "*://*.tracking-analytics.net/*"
+  - url: "*://*.cryptomining.org/*"
 
   # --- REDIRECTION RULES ---
 
-  # Rule 1: Redirects to a specific external page, overriding the global default.
-  - url: "*://*[.social-media-site.com/](https://.social-media-site.com/)*"
-    htmlsrc: "[https://company.com/pages/policy-social-media.html](https://company.com/pages/policy-social-media.html)"
+  # 1. Redirects a specific domain to a custom external page.
+  #    This rule's 'htmlsrc' overrides the global setting.
+  - url: "*://*.banned-social-network.com/*"
+    htmlsrc: "https://internal.mycompany.com/policies/social-media.html"
 
-  # Rule 2: Redirects to a page with custom inline HTML.
-  - url: "*://*.gaming-site.net/*"
-    html: "<h1>Access Restricted</h1><p>Gaming sites are not permitted during work hours.</p>"
+  # 2. Redirects a category of sites to a custom inline HTML page.
+  #    This rule's 'html' content is used because it has no 'htmlsrc'.
+  - url: "*://*.online-games-portal.com/*"
+    html: "<h1>Gaming Policy</h1><p>Recreational gaming sites are unavailable.</p>"
 
-  # Rule 3: This is also a redirect rule, but since it has no target,
-  # it will fall back to the target defined in the 'global' section.
-  - url: "*://*.streaming-service.org/*"
+  # 3. Redirects using the 'global' fallback.
+  #    This rule is a redirect because the 'html' key is present (even if empty).
+  #    Since it has no value, it will fall back to using the 'htmlsrc' from the 'global' section.
+  - url: "*://*.streaming-video-service.io/*"
+    html: ""
